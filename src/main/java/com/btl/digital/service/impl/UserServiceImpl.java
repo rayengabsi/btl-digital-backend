@@ -2,6 +2,7 @@ package com.btl.digital.service.impl;
 
 import com.btl.digital.dto.response.UserProfileResponse;
 import com.btl.digital.entity.User;
+import com.btl.digital.exception.ResourceNotFoundException;
 import com.btl.digital.repository.UserRepository;
 import com.btl.digital.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,7 @@ public class UserServiceImpl implements UserService {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return UserProfileResponse.builder()
                 .id(user.getId())

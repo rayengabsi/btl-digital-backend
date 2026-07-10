@@ -6,6 +6,8 @@ import com.btl.digital.entity.Account;
 import com.btl.digital.entity.User;
 import com.btl.digital.enums.AccountStatus;
 import com.btl.digital.enums.Currency;
+import com.btl.digital.exception.AccessDeniedException;
+import com.btl.digital.exception.ResourceNotFoundException;
 import com.btl.digital.enums.Role;
 import com.btl.digital.repository.AccountRepository;
 import com.btl.digital.repository.UserRepository;
@@ -29,7 +31,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public AccountResponse createAccount(CreateAccountRequest request) {
         User owner = userRepository.findById(request.getOwnerId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         String accountNumber = UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
         String iban = "TN" + "00" + accountNumber;
@@ -63,12 +65,12 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public AccountResponse getAccountById(Long id) {
         Account account = accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Account not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
 
         User currentUser = getAuthenticatedUser();
 
         if (currentUser.getRole() != Role.ADMIN && !account.getOwner().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("Access denied");
+            throw new AccessDeniedException("Access denied");
         }
 
         return mapToResponse(account);
@@ -77,7 +79,7 @@ public class AccountServiceImpl implements AccountService {
     private User getAuthenticatedUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     private AccountResponse mapToResponse(Account account) {

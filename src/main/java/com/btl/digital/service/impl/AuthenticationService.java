@@ -4,6 +4,8 @@ import com.btl.digital.dto.request.LoginRequest;
 import com.btl.digital.dto.request.RegisterRequest;
 import com.btl.digital.dto.response.LoginResponse;
 import com.btl.digital.entity.User;
+import com.btl.digital.exception.EmailAlreadyExistsException;
+import com.btl.digital.exception.ResourceNotFoundException;
 import com.btl.digital.enums.AccountStatus;
 import com.btl.digital.enums.Role;
 import com.btl.digital.repository.UserRepository;
@@ -28,7 +30,7 @@ public class AuthenticationService {
 
     public LoginResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new EmailAlreadyExistsException("Email already exists");
         }
 
         User user = User.builder()
@@ -63,7 +65,7 @@ public class AuthenticationService {
         );
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         String token = jwtService.generateToken(buildUserDetails(user));
 
