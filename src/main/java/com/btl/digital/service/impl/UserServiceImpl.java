@@ -1,16 +1,20 @@
 package com.btl.digital.service.impl;
 
+import com.btl.digital.dto.request.ChangePasswordRequest;
+import com.btl.digital.dto.request.UpdateProfileRequest;
 import com.btl.digital.dto.request.UpdateUserRoleRequest;
 import com.btl.digital.dto.response.AdminDashboardResponse;
 import com.btl.digital.dto.response.AdminUserResponse;
 import com.btl.digital.dto.response.UserProfileResponse;
 import com.btl.digital.entity.User;
 import com.btl.digital.enums.AccountStatus;
+import com.btl.digital.exception.AccessDeniedException;
 import com.btl.digital.exception.ResourceNotFoundException;
 import com.btl.digital.repository.AccountRepository;
 import com.btl.digital.repository.TransactionRepository;
 import com.btl.digital.repository.UserRepository;
 import com.btl.digital.service.UserService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +28,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public UserProfileResponse getCurrentUser() {
@@ -41,6 +46,49 @@ public class UserServiceImpl implements UserService {
                 .role(user.getRole())
                 .status(user.getStatus())
                 .build();
+    }
+
+    @Override
+    public UserProfileResponse updateProfile(UpdateProfileRequest request) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setPhoneNumber(request.getPhoneNumber());
+
+        User updatedUser = userRepository.save(user);
+
+        return UserProfileResponse.builder()
+                .id(updatedUser.getId())
+                .firstName(updatedUser.getFirstName())
+                .lastName(updatedUser.getLastName())
+                .email(updatedUser.getEmail())
+                .phoneNumber(updatedUser.getPhoneNumber())
+                .role(updatedUser.getRole())
+                .status(updatedUser.getStatus())
+                .build();
+    }
+
+    @Override
+    public void changePassword(ChangePasswordRequest request) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new AccessDeniedException("Current password is incorrect");
+        }
+
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Passwords do not match");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     @Override

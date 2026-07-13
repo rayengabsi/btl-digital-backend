@@ -1,5 +1,7 @@
 package com.btl.digital.service;
 
+import com.btl.digital.dto.request.ChangePasswordRequest;
+import com.btl.digital.dto.request.UpdateProfileRequest;
 import com.btl.digital.dto.request.UpdateUserRoleRequest;
 import com.btl.digital.dto.response.AdminDashboardResponse;
 import com.btl.digital.dto.response.AdminUserResponse;
@@ -10,6 +12,10 @@ import java.util.List;
 public interface UserService {
 
     UserProfileResponse getCurrentUser();
+
+    UserProfileResponse updateProfile(UpdateProfileRequest request);
+
+    void changePassword(ChangePasswordRequest request);
 
     List<AdminUserResponse> getAllUsers();
 
