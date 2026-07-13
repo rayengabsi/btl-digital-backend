@@ -1,11 +1,14 @@
 package com.btl.digital.service.impl;
 
 import com.btl.digital.dto.request.UpdateUserRoleRequest;
+import com.btl.digital.dto.response.AdminDashboardResponse;
 import com.btl.digital.dto.response.AdminUserResponse;
 import com.btl.digital.dto.response.UserProfileResponse;
 import com.btl.digital.entity.User;
 import com.btl.digital.enums.AccountStatus;
 import com.btl.digital.exception.ResourceNotFoundException;
+import com.btl.digital.repository.AccountRepository;
+import com.btl.digital.repository.TransactionRepository;
 import com.btl.digital.repository.UserRepository;
 import com.btl.digital.service.UserService;
 
@@ -19,6 +22,8 @@ import org.springframework.stereotype.Service;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
+    private final TransactionRepository transactionRepository;
 
     @Override
     public UserProfileResponse getCurrentUser() {
@@ -90,5 +95,22 @@ public class UserServiceImpl implements UserService {
         user.setRole(request.getRole());
         userRepository.save(user);
         return mapToAdminResponse(user);
+    }
+
+    @Override
+    public AdminDashboardResponse getDashboard() {
+        return AdminDashboardResponse.builder()
+                .totalUsers(userRepository.count())
+                .activeUsers(userRepository.countByStatus(AccountStatus.ACTIVE))
+                .inactiveUsers(userRepository.countByStatus(AccountStatus.INACTIVE))
+                .totalAccounts(accountRepository.count())
+                .activeAccounts(accountRepository.countByStatus(AccountStatus.ACTIVE))
+                .frozenAccounts(accountRepository.countByStatus(AccountStatus.FROZEN))
+                .totalTransactions(transactionRepository.count())
+                .totalBankBalance(accountRepository.getTotalBankBalance())
+                .totalDeposits(transactionRepository.getTotalDeposits())
+                .totalWithdrawals(transactionRepository.getTotalWithdrawals())
+                .totalTransfers(transactionRepository.getTotalTransfers())
+                .build();
     }
 }

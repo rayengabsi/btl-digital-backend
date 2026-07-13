@@ -2,6 +2,7 @@ package com.btl.digital.controller;
 
 import com.btl.digital.dto.request.UpdateUserRoleRequest;
 import com.btl.digital.dto.response.AdminAccountResponse;
+import com.btl.digital.dto.response.AdminDashboardResponse;
 import com.btl.digital.dto.response.AdminTransactionResponse;
 import com.btl.digital.dto.response.AdminUserResponse;
 import com.btl.digital.service.AccountService;
@@ -81,5 +82,10 @@ public class AdminController {
     @GetMapping("/accounts/{id}/transactions")
     public ResponseEntity<List<AdminTransactionResponse>> getTransactionsByAccount(@PathVariable Long id) {
         return ResponseEntity.ok(transactionService.getTransactionsByAccount(id));
+    }
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<AdminDashboardResponse> getDashboard() {
+        return ResponseEntity.ok(userService.getDashboard());
     }
 }
