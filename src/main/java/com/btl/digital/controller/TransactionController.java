@@ -1,8 +1,10 @@
 package com.btl.digital.controller;
 
 import com.btl.digital.dto.request.DepositRequest;
+import com.btl.digital.dto.request.TransferRequest;
 import com.btl.digital.dto.request.WithdrawRequest;
 import com.btl.digital.dto.response.TransactionResponse;
+import com.btl.digital.dto.response.TransferResponse;
 import com.btl.digital.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,5 +33,10 @@ public class TransactionController {
     @GetMapping("/account/{accountId}")
     public ResponseEntity<List<TransactionResponse>> getAccountTransactions(@PathVariable Long accountId) {
         return ResponseEntity.ok(transactionService.getAccountTransactions(accountId));
+    }
+
+    @PostMapping("/transfer")
+    public ResponseEntity<TransferResponse> transfer(@Valid @RequestBody TransferRequest request) {
+        return ResponseEntity.ok(transactionService.transfer(request));
     }
 }
