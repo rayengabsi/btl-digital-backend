@@ -3,6 +3,7 @@ package com.btl.digital.service.impl;
 import com.btl.digital.dto.request.DepositRequest;
 import com.btl.digital.dto.request.TransferRequest;
 import com.btl.digital.dto.request.WithdrawRequest;
+import com.btl.digital.dto.response.AdminTransactionResponse;
 import com.btl.digital.dto.response.TransactionResponse;
 import com.btl.digital.dto.response.TransferResponse;
 import com.btl.digital.entity.Account;
@@ -166,6 +167,51 @@ public class TransactionServiceImpl implements TransactionService {
                 .description(transaction.getDescription())
                 .transactionDate(transaction.getTransactionDate())
                 .accountId(transaction.getAccount().getId())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AdminTransactionResponse> getAllTransactions() {
+        return transactionRepository.findAll().stream()
+                .map(this::mapToAdminResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AdminTransactionResponse getTransactionById(Long id) {
+        Transaction transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found"));
+        return mapToAdminResponse(transaction);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AdminTransactionResponse> getTransactionsByAccount(Long accountId) {
+        if (!accountRepository.existsById(accountId)) {
+            throw new ResourceNotFoundException("Account not found");
+        }
+        return transactionRepository.findByAccountIdOrderByTransactionDateDesc(accountId).stream()
+                .map(this::mapToAdminResponse)
+                .toList();
+    }
+
+    private AdminTransactionResponse mapToAdminResponse(Transaction transaction) {
+        Account account = transaction.getAccount();
+        User owner = account.getOwner();
+        return AdminTransactionResponse.builder()
+                .id(transaction.getId())
+                .amount(transaction.getAmount())
+                .transactionType(transaction.getTransactionType())
+                .description(transaction.getDescription())
+                .accountId(account.getId())
+                .accountNumber(account.getAccountNumber())
+                .ownerId(owner.getId())
+                .ownerFirstName(owner.getFirstName())
+                .ownerLastName(owner.getLastName())
+                .ownerEmail(owner.getEmail())
+                .transactionDate(transaction.getTransactionDate())
                 .build();
     }
 }

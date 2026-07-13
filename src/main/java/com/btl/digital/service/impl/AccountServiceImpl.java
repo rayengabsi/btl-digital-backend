@@ -16,6 +16,7 @@ import com.btl.digital.service.AccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -107,6 +108,26 @@ public class AccountServiceImpl implements AccountService {
     public AdminAccountResponse getAccountByIdForAdmin(Long id) {
         Account account = accountRepository.findByIdWithOwner(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+        return mapToAdminResponse(account);
+    }
+
+    @Override
+    @Transactional
+    public AdminAccountResponse freezeAccount(Long id) {
+        Account account = accountRepository.findByIdWithOwner(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+        account.setStatus(AccountStatus.FROZEN);
+        accountRepository.save(account);
+        return mapToAdminResponse(account);
+    }
+
+    @Override
+    @Transactional
+    public AdminAccountResponse unfreezeAccount(Long id) {
+        Account account = accountRepository.findByIdWithOwner(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+        account.setStatus(AccountStatus.ACTIVE);
+        accountRepository.save(account);
         return mapToAdminResponse(account);
     }
 

@@ -17,4 +17,8 @@ public interface AccountService {
     List<AdminAccountResponse> getAllAccounts();
 
     AdminAccountResponse getAccountByIdForAdmin(Long id);
+
+    AdminAccountResponse freezeAccount(Long id);
+
+    AdminAccountResponse unfreezeAccount(Long id);
 }

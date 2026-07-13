@@ -1,5 +1,6 @@
 package com.btl.digital.service;
 
+import com.btl.digital.dto.request.UpdateUserRoleRequest;
 import com.btl.digital.dto.response.AdminUserResponse;
 import com.btl.digital.dto.response.UserProfileResponse;
 
@@ -12,4 +13,10 @@ public interface UserService {
     List<AdminUserResponse> getAllUsers();
 
     AdminUserResponse getUserById(Long id);
+
+    AdminUserResponse activateUser(Long id);
+
+    AdminUserResponse deactivateUser(Long id);
+
+    AdminUserResponse updateUserRole(Long id, UpdateUserRoleRequest request);
 }
