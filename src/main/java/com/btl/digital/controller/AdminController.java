@@ -1,6 +1,8 @@
 package com.btl.digital.controller;
 
+import com.btl.digital.dto.response.AdminAccountResponse;
 import com.btl.digital.dto.response.AdminUserResponse;
+import com.btl.digital.service.AccountService;
 import com.btl.digital.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +16,7 @@ import java.util.List;
 public class AdminController {
 
     private final UserService userService;
+    private final AccountService accountService;
 
     @GetMapping("/users")
     public ResponseEntity<List<AdminUserResponse>> getAllUsers() {
@@ -23,5 +26,15 @@ public class AdminController {
     @GetMapping("/users/{id}")
     public ResponseEntity<AdminUserResponse> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
+    }
+
+    @GetMapping("/accounts")
+    public ResponseEntity<List<AdminAccountResponse>> getAllAccounts() {
+        return ResponseEntity.ok(accountService.getAllAccounts());
+    }
+
+    @GetMapping("/accounts/{id}")
+    public ResponseEntity<AdminAccountResponse> getAccountByIdForAdmin(@PathVariable Long id) {
+        return ResponseEntity.ok(accountService.getAccountByIdForAdmin(id));
     }
 }

@@ -2,6 +2,7 @@ package com.btl.digital.service.impl;
 
 import com.btl.digital.dto.request.CreateAccountRequest;
 import com.btl.digital.dto.response.AccountResponse;
+import com.btl.digital.dto.response.AdminAccountResponse;
 import com.btl.digital.entity.Account;
 import com.btl.digital.entity.User;
 import com.btl.digital.enums.AccountStatus;
@@ -92,6 +93,37 @@ public class AccountServiceImpl implements AccountService {
                 .accountType(account.getAccountType())
                 .status(account.getStatus())
                 .ownerId(account.getOwner().getId())
+                .build();
+    }
+
+    @Override
+    public List<AdminAccountResponse> getAllAccounts() {
+        return accountRepository.findAllWithOwner().stream()
+                .map(this::mapToAdminResponse)
+                .toList();
+    }
+
+    @Override
+    public AdminAccountResponse getAccountByIdForAdmin(Long id) {
+        Account account = accountRepository.findByIdWithOwner(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+        return mapToAdminResponse(account);
+    }
+
+    private AdminAccountResponse mapToAdminResponse(Account account) {
+        return AdminAccountResponse.builder()
+                .id(account.getId())
+                .accountNumber(account.getAccountNumber())
+                .iban(account.getIban())
+                .balance(account.getBalance())
+                .currency(account.getCurrency())
+                .accountType(account.getAccountType())
+                .status(account.getStatus())
+                .ownerId(account.getOwner().getId())
+                .ownerFirstName(account.getOwner().getFirstName())
+                .ownerLastName(account.getOwner().getLastName())
+                .ownerEmail(account.getOwner().getEmail())
+                .createdAt(account.getCreatedAt())
                 .build();
     }
 }
