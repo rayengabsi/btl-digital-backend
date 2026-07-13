@@ -1,6 +1,7 @@
 package com.btl.digital.service.impl;
 
 import com.btl.digital.dto.request.DepositRequest;
+import com.btl.digital.dto.request.TransactionFilterRequest;
 import com.btl.digital.dto.request.TransferRequest;
 import com.btl.digital.dto.request.WithdrawRequest;
 import com.btl.digital.dto.response.AdminTransactionResponse;
@@ -17,12 +18,20 @@ import com.btl.digital.service.TransactionService;
 import com.btl.digital.entity.User;
 import com.btl.digital.enums.Role;
 import com.btl.digital.repository.UserRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -79,15 +88,56 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public List<TransactionResponse> getAccountTransactions(Long accountId) {
-        accountRepository.findById(accountId)
-                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+    @Transactional(readOnly = true)
+    public Page<TransactionResponse> getTransactions(TransactionFilterRequest request) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        List<Transaction> transactions = transactionRepository.findByAccountIdOrderByTransactionDateDesc(accountId);
+        if (currentUser.getRole() != Role.ADMIN) {
+            if (request.getAccountId() == null) {
+                throw new AccessDeniedException("Access denied");
+            }
+            Account account = accountRepository.findById(request.getAccountId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+            if (!account.getOwner().getId().equals(currentUser.getId())) {
+                throw new AccessDeniedException("Access denied");
+            }
+        } else {
+            if (request.getAccountId() != null) {
+                if (!accountRepository.existsById(request.getAccountId())) {
+                    throw new ResourceNotFoundException("Account not found");
+                }
+            }
+        }
 
-        return transactions.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        Specification<Transaction> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (request.getAccountId() != null) {
+                predicates.add(cb.equal(root.get("account").get("id"), request.getAccountId()));
+            }
+
+            if (request.getTransactionType() != null) {
+                predicates.add(cb.equal(root.get("transactionType"), request.getTransactionType()));
+            }
+
+            if (request.getFromDate() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("transactionDate"), request.getFromDate().atStartOfDay()));
+            }
+
+            if (request.getToDate() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("transactionDate"), request.getToDate().atTime(LocalTime.MAX)));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Sort.Direction direction = Sort.Direction.fromString(request.getDirection());
+        Sort sort = Sort.by(direction, request.getSortBy());
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), sort);
+
+        return transactionRepository.findAll(spec, pageable).map(this::mapToResponse);
     }
 
     @Override
