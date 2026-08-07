@@ -6,38 +6,37 @@ spring:
     name: btl-digital-backend
 
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:h2:mem:btldigital;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 2
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: create-drop
+    show-sql: false
     open-in-view: false
     properties:
       hibernate:
         format_sql: true
-
-  mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: false
+        dialect: org.hibernate.dialect.H2Dialect
 
 app:
-  email:
-    enabled: false
+  backend-public-url: http://localhost:8081
   security:
     reset-token-expiration: 15
 
+brevo:
+  api-key: ${BREVO_API_KEY:}
+
 jwt:
-  secret: ${JWT_SECRET}
-  expiration: 86400000
+  secret: ${JWT_SECRET:this-is-a-long-insecure-mock-secret-for-dev-00000000}
+  expiration: 900000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
