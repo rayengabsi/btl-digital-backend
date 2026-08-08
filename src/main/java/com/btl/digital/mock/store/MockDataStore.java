@@ -136,9 +136,28 @@ public class MockDataStore {
                 .registered(false)
                 .build();
 
+        // Development / manual-test customer matching the Flutter registration
+        // demo credentials (POST /api/v1/registration/verify-client):
+        //   First Name: Rayen | Last Name: Gabsi
+        //   ID Type: CIN | ID Number: 13516553
+        //   Date of Birth (YYYYMMDD): 06112003
+        //   Phone: 53852323   (SMS_1 registered number, sent without the 216 prefix)
+        MockCustomer rayen = MockCustomer.builder()
+                .customerId("TN0000004")
+                .firstName("Rayen")
+                .lastName("Gabsi")
+                .idType("CIN")
+                .idNumber("13516553")
+                .dateOfBirth("06112003")
+                .phoneNumber("53852323")
+                .email("rayen.gabsi@mock.dev")
+                .registered(false)
+                .build();
+
         customersByPhone.put(PHONE_NUMBER_AMINA, amina);
         customersByPhone.put("21650223344", sami);
         customersByPhone.put("21655312233", karim);
+        customersByPhone.put("53852323", rayen);
     }
 
     private void seedClientUsers() {
