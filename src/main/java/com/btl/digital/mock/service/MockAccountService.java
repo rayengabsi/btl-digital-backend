@@ -1,9 +1,10 @@
 package com.btl.digital.mock.service;
 
-import com.btl.digital.mock.common.ApiResponse;
 import com.btl.digital.mock.common.MockApiException;
 import com.btl.digital.mock.dto.account.AccountTransactionsResponse;
 import com.btl.digital.mock.dto.account.CustomerAccount;
+import com.btl.digital.mock.dto.dev.DevAccountDepositRequest;
+import com.btl.digital.mock.dto.dev.DevAccountDepositResponse;
 import com.btl.digital.mock.model.MockAccount;
 import com.btl.digital.mock.model.MockClientUser;
 import com.btl.digital.mock.model.MockTransaction;
@@ -34,6 +35,46 @@ public class MockAccountService {
         return store.accountsForClient(client.getId()).stream()
                 .map(this::toDto)
                 .toList();
+    }
+
+    /**
+     * Development-only: credits fake money to the authenticated client's primary
+     * mock account and records a matching statement transaction. The balances
+     * updated here are the same ones read by GET /api/v1/accounts and
+     * POST /api/v1/transfers/intra.
+     */
+    public DevAccountDepositResponse depositToPrimaryAccount(DevAccountDepositRequest request) {
+        MockClientUser client = authContext.requireClient();
+
+        MockAccount primary = store.accountsForClient(client.getId()).stream()
+                .findFirst()
+                .orElseThrow(() -> new MockApiException(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND",
+                        "No mock account found for the authenticated client."));
+
+        primary.setAvailableBalance(primary.getAvailableBalance().add(request.getAmount()));
+        primary.setWorkingBalance(primary.getWorkingBalance().add(request.getAmount()));
+
+        String reference = "DEP" + System.currentTimeMillis() % 1_000_000_000;
+        store.addTransaction(primary.getAccountId(), MockTransaction.builder()
+                .accountId(primary.getAccountId())
+                .transactionReference(reference)
+                .transactionCode("Deposit")
+                .bookingDate(LocalDate.now())
+                .valueDate(LocalDate.now())
+                .closingBalance(primary.getAvailableBalance())
+                .debitAmount(null)
+                .creditAmount(request.getAmount())
+                .narratives(List.of("Dev deposit"))
+                .build());
+
+        return DevAccountDepositResponse.builder()
+                .accountId(primary.getAccountId())
+                .iban(primary.getIban())
+                .currencyId(primary.getCurrencyId())
+                .amount(request.getAmount())
+                .availableBalance(primary.getAvailableBalance())
+                .workingBalance(primary.getWorkingBalance())
+                .build();
     }
 
     public AccountTransactionsResponse getTransactions(String iban, LocalDate fromDate, LocalDate toDate,
