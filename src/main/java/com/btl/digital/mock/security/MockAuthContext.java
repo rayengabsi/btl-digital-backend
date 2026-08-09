@@ -29,11 +29,15 @@ public class MockAuthContext {
         return client;
     }
 
+    private static final String MOCK_TEST_USER_EMAIL = "rayen.gabsi@mock.dev";
+
     public MockClientUser currentClient() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !(auth.getPrincipal() instanceof MockPrincipal principal)) {
-            return null;
+        if (auth != null && auth.getPrincipal() instanceof MockPrincipal principal) {
+            return store.clientById(principal.clientUserId()).orElse(null);
         }
-        return store.clientById(principal.clientUserId()).orElse(null);
+        // No JWT is presented (the non-auth mock banking endpoints are permit-all):
+        // resolve the deterministic mock test user so services get Rayen's context.
+        return store.clientByEmail(MOCK_TEST_USER_EMAIL).orElse(null);
     }
 }

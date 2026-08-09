@@ -181,6 +181,60 @@ public class MockDataStore {
         amina.setClientUserId(aminaUser.getId());
         addClientUser(aminaUser);
         seedAccounts(aminaUser);
+
+        // Deterministic mock test user used by the non-auth mock banking
+        // endpoints (they fall back to this user when no JWT is presented).
+        // Note: the T24 customer is left unregistered so the registration
+        // demo (POST /api/v1/registration/verify-client) keeps working.
+        MockCustomer rayen = customersByPhone.get(PHONE_NUMBER_RAYEN);
+        MockClientUser rayenUser = MockClientUser.builder()
+                .id(clientUserIdSeq.getAndIncrement())
+                .email("rayen.gabsi@mock.dev")
+                .passwordHash(passwordEncoder.encode(PASSWORD_RAYEN))
+                .firstName("Rayen")
+                .lastName("Gabsi")
+                .t24CustomerId(rayen.getCustomerId())
+                .phoneNumber(PHONE_NUMBER_RAYEN)
+                .emailAddress("rayen.gabsi@mock.dev")
+                .subscriptionId(2L) // Premium: all mock permissions
+                .status("ACTIVE")
+                .firstLoginRequired(false)
+                .phoneVerified(true)
+                .emailVerified(true)
+                .build();
+        addClientUser(rayenUser);
+        seedRayenAccounts(rayenUser);
+        addBeneficiary(MockBeneficiary.builder()
+                .id(beneficiaryIdSeq.getAndIncrement())
+                .clientUserId(rayenUser.getId())
+                .beneficiaryName("Sami Ben Salah")
+                .ribNumber("01000000000000000105")
+                .createdAt(LocalDateTime.now())
+                .build());
+    }
+
+    private void seedRayenAccounts(MockClientUser rayen) {
+        addAccount(MockAccount.builder()
+                .accountId("2089021249357")
+                .arrangementId("AA26086WN1AZ")
+                .productName("COMPTE PERSONNE")
+                .iban("TN5926028000890212493571")
+                .currencyId("TND")
+                .availableBalance(new BigDecimal("75000.000"))
+                .workingBalance(new BigDecimal("75000.000"))
+                .ownerClientUserId(rayen.getId())
+                .build());
+
+        addAccount(MockAccount.builder()
+                .accountId("2089021207514")
+                .arrangementId("AA26086WN1BY")
+                .productName("COMPTE PERSONNE")
+                .iban("TN5926028000890207513565")
+                .currencyId("TND")
+                .availableBalance(new BigDecimal("25000.000"))
+                .workingBalance(new BigDecimal("25000.000"))
+                .ownerClientUserId(rayen.getId())
+                .build());
     }
 
     private void seedAccounts(MockClientUser amina) {
@@ -523,4 +577,6 @@ public class MockDataStore {
 
     private static final String PHONE_NUMBER_AMINA = "21655123456";
     private static final String PASSWORD_AMINA = "Password1@";
+    private static final String PHONE_NUMBER_RAYEN = "53852323";
+    private static final String PASSWORD_RAYEN = "Password1@";
 }

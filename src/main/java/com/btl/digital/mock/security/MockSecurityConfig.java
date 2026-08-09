@@ -43,7 +43,14 @@ public class MockSecurityConfig {
                                 "/api/v1/registration/**",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/login/choose-mfa",
-                                "/api/v1/auth/login/verify-otp"
+                                "/api/v1/auth/login/verify-otp",
+                                "/api/v1/accounts/**",
+                                "/api/v1/beneficiaries/**",
+                                "/api/v1/transfers/**",
+                                "/api/v1/transfer-demands/**",
+                                "/api/v1/currencies/**",
+                                "/api/v1/subscriptions/**",
+                                "/api/v1/dev/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
