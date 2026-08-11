@@ -8,6 +8,7 @@ import com.btl.digital.mock.dto.registration.VerifyClientRequest;
 import com.btl.digital.mock.dto.registration.VerifyClientResponse;
 import com.btl.digital.mock.dto.registration.VerifyEmailRequest;
 import com.btl.digital.mock.dto.registration.VerifyPhoneOtpRequest;
+import com.btl.digital.mock.model.MockAccount;
 import com.btl.digital.mock.model.MockClientUser;
 import com.btl.digital.mock.model.MockCustomer;
 import com.btl.digital.mock.model.MockOtp;
@@ -173,8 +174,10 @@ public class MockRegistrationService {
 
         session.setCompleted(true);
         store.markCustomerRegistered(session.getT24CustomerId(), user.getId());
-        log.info("[MOCK] Registered client user id={} email={} linked to T24 customer {}",
-                user.getId(), user.getEmail(), session.getT24CustomerId());
+
+        MockAccount account = store.createPrimaryAccountForClient(user.getId());
+        log.info("[MOCK] Registered client user id={} email={} linked to T24 customer {} and primary TND account {}",
+                user.getId(), user.getEmail(), session.getT24CustomerId(), account.getIban());
 
         return CompleteRegistrationResponse.builder()
                 .userId(user.getId())

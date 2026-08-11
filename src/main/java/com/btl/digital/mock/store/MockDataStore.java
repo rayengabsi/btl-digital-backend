@@ -55,6 +55,7 @@ public class MockDataStore {
     private volatile boolean loaded;
 
     private final AtomicLong clientUserIdSeq = new AtomicLong(1);
+    private final AtomicLong accountIdSeq = new AtomicLong(9_000_000_000_000L);
     private final AtomicLong beneficiaryIdSeq = new AtomicLong(1);
     private final AtomicLong transferDemandIdSeq = new AtomicLong(1);
     private final AtomicLong subscriptionIdSeq = new AtomicLong(1);
@@ -161,6 +162,7 @@ public class MockDataStore {
         s.permissionsById = new LinkedHashMap<>(permissionsById);
         s.currencyRates = new LinkedHashMap<>(currencyRates);
         s.clientUserIdSeq = clientUserIdSeq.get();
+        s.accountIdSeq = accountIdSeq.get();
         s.beneficiaryIdSeq = beneficiaryIdSeq.get();
         s.transferDemandIdSeq = transferDemandIdSeq.get();
         s.subscriptionIdSeq = subscriptionIdSeq.get();
@@ -215,6 +217,7 @@ public class MockDataStore {
         if (s.currencyRates != null) currencyRates.putAll(s.currencyRates);
 
         clientUserIdSeq.set(s.clientUserIdSeq);
+        accountIdSeq.set(s.accountIdSeq);
         beneficiaryIdSeq.set(s.beneficiaryIdSeq);
         transferDemandIdSeq.set(s.transferDemandIdSeq);
         subscriptionIdSeq.set(s.subscriptionIdSeq);
@@ -237,6 +240,7 @@ public class MockDataStore {
         private Map<Long, MockPermission> permissionsById = new LinkedHashMap<>();
         private Map<String, List<MockCurrencyRate>> currencyRates = new LinkedHashMap<>();
         private long clientUserIdSeq = 1;
+        private long accountIdSeq = 9_000_000_000_000L;
         private long beneficiaryIdSeq = 1;
         private long transferDemandIdSeq = 1;
         private long subscriptionIdSeq = 1;
@@ -528,6 +532,28 @@ public class MockDataStore {
     // ------------------------------------------------------------------
     // accounts + transactions
     // ------------------------------------------------------------------
+
+    /**
+     * Creates and persists one primary TND account (zero balance) owned by the
+     * given client user. Called when a new mock client completes registration
+     * so they immediately have a banking account. Seeded accounts are untouched.
+     */
+    public MockAccount createPrimaryAccountForClient(Long clientUserId) {
+        long seq = accountIdSeq.getAndIncrement();
+        String accountId = String.format("%013d", seq);
+        MockAccount account = MockAccount.builder()
+                .accountId(accountId)
+                .arrangementId("AA26" + accountId.substring(0, 6))
+                .productName("COMPTE PERSONNE")
+                .iban("TN59" + "2602" + "8000" + accountId.substring(1))
+                .currencyId("TND")
+                .availableBalance(BigDecimal.ZERO)
+                .workingBalance(BigDecimal.ZERO)
+                .ownerClientUserId(clientUserId)
+                .build();
+        addAccount(account);
+        return account;
+    }
 
     public void addAccount(MockAccount account) {
         accountsByIban.put(account.getIban(), account);
