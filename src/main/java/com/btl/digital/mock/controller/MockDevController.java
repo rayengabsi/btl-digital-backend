@@ -6,6 +6,7 @@ import com.btl.digital.mock.dto.dev.DevAccountDepositResponse;
 import com.btl.digital.mock.service.MockAccountService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,9 +27,10 @@ public class MockDevController {
         this.accountService = accountService;
     }
 
-    @PostMapping("/accounts/deposit")
+    @PostMapping("/accounts/{iban}/deposit")
     public ResponseEntity<ApiResponse<DevAccountDepositResponse>> deposit(
+            @PathVariable String iban,
             @Valid @RequestBody DevAccountDepositRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Deposit processed.", accountService.depositToPrimaryAccount(request)));
+        return ResponseEntity.ok(ApiResponse.success("Deposit processed.", accountService.depositToAccount(iban, request)));
     }
 }
