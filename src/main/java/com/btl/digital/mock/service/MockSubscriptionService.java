@@ -32,6 +32,7 @@ public class MockSubscriptionService {
         MockClientUser user = store.clientById(clientUserId)
                 .orElseThrow(() -> new MockApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Client user not found."));
         user.setSubscriptionId(subscriptionId);
+        store.persist();
         return subResponse(store.subscriptionById(subscriptionId).orElseThrow());
     }
 

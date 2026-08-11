@@ -11,8 +11,13 @@ import com.btl.digital.mock.model.MockRegistrationSession;
 import com.btl.digital.mock.model.MockSubscription;
 import com.btl.digital.mock.model.MockTransaction;
 import com.btl.digital.mock.model.MockTransferDemand;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.NoArgsConstructor;
+import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -40,7 +45,14 @@ public class MockDataStore {
 
     private static final Logger log = LoggerFactory.getLogger(MockDataStore.class);
 
+    private static final String SNAPSHOT_TABLE = "MOCK_DATA_STORE_SNAPSHOT";
+    private static final long SNAPSHOT_ID = 1L;
+
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper;
+
+    private volatile boolean loaded;
 
     private final AtomicLong clientUserIdSeq = new AtomicLong(1);
     private final AtomicLong beneficiaryIdSeq = new AtomicLong(1);
@@ -70,9 +82,166 @@ public class MockDataStore {
 
     private final Map<String, List<MockCurrencyRate>> currencyRates = new LinkedHashMap<>();
 
-    public MockDataStore(PasswordEncoder passwordEncoder) {
+    public MockDataStore(PasswordEncoder passwordEncoder, JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
         this.passwordEncoder = passwordEncoder;
-        seed();
+        this.jdbcTemplate = jdbcTemplate;
+        this.objectMapper = objectMapper;
+        initSnapshotTable();
+        if (restore()) {
+            this.loaded = true;
+        } else {
+            seed();
+            this.loaded = true;
+            persist();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Persistence (file-based H2 snapshot)
+    // ------------------------------------------------------------------
+
+    private void initSnapshotTable() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + SNAPSHOT_TABLE
+                + " (ID BIGINT PRIMARY KEY, PAYLOAD CLOB)");
+    }
+
+    /**
+     * Loads the persisted mock data snapshot if one exists. Returns true when
+     * existing data was restored; false when no usable snapshot was found.
+     */
+    private boolean restore() {
+        try {
+            String json = jdbcTemplate.queryForObject(
+                    "SELECT PAYLOAD FROM " + SNAPSHOT_TABLE + " WHERE ID = ?",
+                    String.class, SNAPSHOT_ID);
+            if (json == null || json.isBlank()) {
+                return false;
+            }
+            Snapshot snapshot = objectMapper.readValue(json, Snapshot.class);
+            apply(snapshot);
+            log.info("[MOCK] Restored mock data snapshot from file-based H2 database.");
+            return true;
+        } catch (EmptyResultDataAccessException e) {
+            return false;
+        } catch (Exception e) {
+            log.warn("[MOCK] Could not restore mock data snapshot, reseeding: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Persists the current mock data state into the file-based H2 database so
+     * it survives backend restarts. No-op until the store has finished loading
+     * or seeding to avoid writing partial state during bootstrap.
+     */
+    public void persist() {
+        if (!loaded) {
+            return;
+        }
+        try {
+            String json = objectMapper.writeValueAsString(capture());
+            jdbcTemplate.update("MERGE INTO " + SNAPSHOT_TABLE + " (ID, PAYLOAD) KEY(ID) VALUES (?, ?)",
+                    SNAPSHOT_ID, json);
+        } catch (Exception e) {
+            log.warn("[MOCK] Could not persist mock data snapshot: {}", e.getMessage());
+        }
+    }
+
+    private Snapshot capture() {
+        Snapshot s = new Snapshot();
+        s.customersByPhone = new LinkedHashMap<>(customersByPhone);
+        s.clientUsersById = new LinkedHashMap<>(clientUsersById);
+        s.accountsByIban = new LinkedHashMap<>(accountsByIban);
+        s.transactionsByIban = new LinkedHashMap<>(transactionsByIban);
+        s.beneficiariesById = new LinkedHashMap<>(beneficiariesById);
+        s.transferDemandsById = new LinkedHashMap<>(transferDemandsById);
+        s.registrationSessions = new LinkedHashMap<>(registrationSessions);
+        s.loginChallenges = new LinkedHashMap<>(loginChallenges);
+        s.subscriptionsById = new LinkedHashMap<>(subscriptionsById);
+        s.permissionsById = new LinkedHashMap<>(permissionsById);
+        s.currencyRates = new LinkedHashMap<>(currencyRates);
+        s.clientUserIdSeq = clientUserIdSeq.get();
+        s.beneficiaryIdSeq = beneficiaryIdSeq.get();
+        s.transferDemandIdSeq = transferDemandIdSeq.get();
+        s.subscriptionIdSeq = subscriptionIdSeq.get();
+        s.permissionIdSeq = permissionIdSeq.get();
+        s.challengeIdSeq = challengeIdSeq.get();
+        return s;
+    }
+
+    private void apply(Snapshot s) {
+        customersByPhone.clear();
+        if (s.customersByPhone != null) customersByPhone.putAll(s.customersByPhone);
+
+        clientUsersById.clear();
+        if (s.clientUsersById != null) clientUsersById.putAll(s.clientUsersById);
+        clientUsersByEmail.clear();
+        clientUsersById.values().forEach(u -> clientUsersByEmail.put(u.getEmail().toLowerCase(), u));
+
+        accountsByIban.clear();
+        accountsByAccountId.clear();
+        if (s.accountsByIban != null) {
+            accountsByIban.putAll(s.accountsByIban);
+            accountsByIban.values().forEach(a -> accountsByAccountId.put(a.getAccountId(), a));
+        }
+
+        transactionsByIban.clear();
+        if (s.transactionsByIban != null) transactionsByIban.putAll(s.transactionsByIban);
+
+        beneficiariesById.clear();
+        beneficiariesByClient.clear();
+        if (s.beneficiariesById != null) {
+            beneficiariesById.putAll(s.beneficiariesById);
+            beneficiariesById.values().forEach(b ->
+                    beneficiariesByClient.computeIfAbsent(b.getClientUserId(), k -> new ArrayList<>()).add(b));
+        }
+
+        transferDemandsById.clear();
+        if (s.transferDemandsById != null) transferDemandsById.putAll(s.transferDemandsById);
+
+        registrationSessions.clear();
+        if (s.registrationSessions != null) registrationSessions.putAll(s.registrationSessions);
+
+        loginChallenges.clear();
+        if (s.loginChallenges != null) loginChallenges.putAll(s.loginChallenges);
+
+        subscriptionsById.clear();
+        if (s.subscriptionsById != null) subscriptionsById.putAll(s.subscriptionsById);
+
+        permissionsById.clear();
+        if (s.permissionsById != null) permissionsById.putAll(s.permissionsById);
+
+        currencyRates.clear();
+        if (s.currencyRates != null) currencyRates.putAll(s.currencyRates);
+
+        clientUserIdSeq.set(s.clientUserIdSeq);
+        beneficiaryIdSeq.set(s.beneficiaryIdSeq);
+        transferDemandIdSeq.set(s.transferDemandIdSeq);
+        subscriptionIdSeq.set(s.subscriptionIdSeq);
+        permissionIdSeq.set(s.permissionIdSeq);
+        challengeIdSeq.set(s.challengeIdSeq);
+    }
+
+    @Data
+    @NoArgsConstructor
+    private static class Snapshot {
+        private Map<String, MockCustomer> customersByPhone = new LinkedHashMap<>();
+        private Map<Long, MockClientUser> clientUsersById = new LinkedHashMap<>();
+        private Map<String, MockAccount> accountsByIban = new LinkedHashMap<>();
+        private Map<String, List<MockTransaction>> transactionsByIban = new LinkedHashMap<>();
+        private Map<String, MockBeneficiary> beneficiariesById = new LinkedHashMap<>();
+        private Map<Long, MockTransferDemand> transferDemandsById = new LinkedHashMap<>();
+        private Map<String, MockRegistrationSession> registrationSessions = new LinkedHashMap<>();
+        private Map<Long, MockLoginChallenge> loginChallenges = new LinkedHashMap<>();
+        private Map<Long, MockSubscription> subscriptionsById = new LinkedHashMap<>();
+        private Map<Long, MockPermission> permissionsById = new LinkedHashMap<>();
+        private Map<String, List<MockCurrencyRate>> currencyRates = new LinkedHashMap<>();
+        private long clientUserIdSeq = 1;
+        private long beneficiaryIdSeq = 1;
+        private long transferDemandIdSeq = 1;
+        private long subscriptionIdSeq = 1;
+        private long permissionIdSeq = 1;
+        private long challengeIdSeq = 1;
     }
 
     // ------------------------------------------------------------------
@@ -363,10 +532,12 @@ public class MockDataStore {
     public void addAccount(MockAccount account) {
         accountsByIban.put(account.getIban(), account);
         accountsByAccountId.put(account.getAccountId(), account);
+        persist();
     }
 
     public void addTransaction(String accountId, MockTransaction txn) {
         transactionsByIban.computeIfAbsent(accountId, k -> new ArrayList<>()).add(txn);
+        persist();
     }
 
     public Optional<MockAccount> accountByIban(String iban) {
@@ -395,6 +566,7 @@ public class MockDataStore {
     public void addClientUser(MockClientUser user) {
         clientUsersById.put(user.getId(), user);
         clientUsersByEmail.put(user.getEmail(), user);
+        persist();
     }
 
     public Optional<MockClientUser> clientById(Long id) {
@@ -441,6 +613,7 @@ public class MockDataStore {
             c.setRegistered(true);
             c.setClientUserId(clientUserId);
         });
+        persist();
     }
 
     // ------------------------------------------------------------------
@@ -450,6 +623,7 @@ public class MockDataStore {
     public void addBeneficiary(MockBeneficiary b) {
         beneficiariesById.put(String.valueOf(b.getId()), b);
         beneficiariesByClient.computeIfAbsent(b.getClientUserId(), k -> new ArrayList<>()).add(b);
+        persist();
     }
 
     public Optional<MockBeneficiary> beneficiaryById(Long id) {
@@ -473,12 +647,14 @@ public class MockDataStore {
         beneficiariesById.remove(String.valueOf(id));
         List<MockBeneficiary> list = beneficiariesByClient.getOrDefault(clientUserId, new ArrayList<>());
         list.removeIf(b -> b.getId().equals(id));
+        persist();
     }
 
     public void updateBeneficiary(MockBeneficiary updated) {
         beneficiariesById.put(String.valueOf(updated.getId()), updated);
         beneficiariesByClient.computeIfAbsent(updated.getClientUserId(), k -> new ArrayList<>())
                 .replaceAll(b -> b.getId().equals(updated.getId()) ? updated : b);
+        persist();
     }
 
     // ------------------------------------------------------------------
@@ -487,6 +663,7 @@ public class MockDataStore {
 
     public void addTransferDemand(MockTransferDemand d) {
         transferDemandsById.put(d.getId(), d);
+        persist();
     }
 
     public Optional<MockTransferDemand> transferDemandById(Long id) {
@@ -505,6 +682,7 @@ public class MockDataStore {
 
     public void addRegistrationSession(MockRegistrationSession s) {
         registrationSessions.put(s.getToken(), s);
+        persist();
     }
 
     public Optional<MockRegistrationSession> registrationSessionByToken(String token) {
@@ -513,6 +691,7 @@ public class MockDataStore {
 
     public void addLoginChallenge(MockLoginChallenge c) {
         loginChallenges.put(c.getId(), c);
+        persist();
     }
 
     public Optional<MockLoginChallenge> loginChallenge(Long id) {
@@ -525,6 +704,7 @@ public class MockDataStore {
 
     public void addSubscription(MockSubscription s) {
         subscriptionsById.put(s.getId(), s);
+        persist();
     }
 
     public Optional<MockSubscription> subscriptionById(Long id) {
@@ -537,6 +717,7 @@ public class MockDataStore {
 
     public void removeSubscription(Long id) {
         subscriptionsById.remove(id);
+        persist();
     }
 
     public Optional<MockPermission> permissionById(Long id) {
@@ -549,6 +730,7 @@ public class MockDataStore {
 
     public void addPermission(MockPermission p) {
         permissionsById.put(p.getId(), p);
+        persist();
     }
 
     public Set<String> permissionsGrantedToClient(Long clientUserId) {
