@@ -100,40 +100,45 @@ public class MockDataStore {
     }
 
     private void ensureDemoCustomers() {
-        boolean added = false;
-        if (!customersByPhone.containsKey("21690000001")) {
-            MockCustomer ahmed = MockCustomer.builder()
-                    .customerId("TNDEMO0001")
-                    .firstName("Ahmed")
-                    .lastName("Ben Ali")
-                    .idType("CIN")
-                    .idNumber("99000001")
-                    .dateOfBirth("19950115")
-                    .phoneNumber("21690000001")
-                    .email("ahmed.benali@mock.dev")
-                    .registered(false)
-                    .build();
-            customersByPhone.put("21690000001", ahmed);
-            added = true;
+        MockCustomer ahmed = MockCustomer.builder()
+                .customerId("TNDEMO0001")
+                .firstName("Ahmed")
+                .lastName("Ben Ali")
+                .idType("CIN")
+                .idNumber("99000001")
+                .dateOfBirth("19950115")
+                .phoneNumber("21690000001")
+                .email("ahmed.benali@mock.dev")
+                .registered(false)
+                .build();
+        customersByPhone.put("21690000001", ahmed);
+
+        MockCustomer mohamed = MockCustomer.builder()
+                .customerId("TNDEMO0002")
+                .firstName("Mohamed")
+                .lastName("Trabelsi")
+                .idType("CIN")
+                .idNumber("99000002")
+                .dateOfBirth("19940220")
+                .phoneNumber("21690000002")
+                .email("mohamed.trabelsi@mock.dev")
+                .registered(false)
+                .build();
+        customersByPhone.put("21690000002", mohamed);
+
+        List<Long> testClientIds = clientUsersById.values().stream()
+                .filter(u -> "TNDEMO0001".equals(u.getT24CustomerId()) || "TNDEMO0002".equals(u.getT24CustomerId()))
+                .map(MockClientUser::getId)
+                .toList();
+
+        for (Long id : testClientIds) {
+            MockClientUser user = clientUsersById.remove(id);
+            if (user != null && user.getEmail() != null) {
+                clientUsersByEmail.remove(user.getEmail().toLowerCase());
+            }
         }
-        if (!customersByPhone.containsKey("21690000002")) {
-            MockCustomer mohamed = MockCustomer.builder()
-                    .customerId("TNDEMO0002")
-                    .firstName("Mohamed")
-                    .lastName("Trabelsi")
-                    .idType("CIN")
-                    .idNumber("99000002")
-                    .dateOfBirth("19940220")
-                    .phoneNumber("21690000002")
-                    .email("mohamed.trabelsi@mock.dev")
-                    .registered(false)
-                    .build();
-            customersByPhone.put("21690000002", mohamed);
-            added = true;
-        }
-        if (added) {
-            persist();
-        }
+
+        persist();
     }
 
     // ------------------------------------------------------------------
